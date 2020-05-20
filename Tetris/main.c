@@ -11,21 +11,27 @@
 #define moveRighKey 'd'
 #define turnFallingElem 'o'
 #define refreshingTime 0.25
-#define shapeCount 2
+#define shapeCount 3
 
 enum Shape {
 	Block = 1,
-	Line = 2
+	Line = 2,
+	Zblock = 3
 };
 
 struct Game {
 	char gameField[gameFieldHeigh][gameFieldWidth];
 };
 
-struct FallingElem {
+struct Point {
 	int positionX;
 	int positionY;
+};
+
+struct FallingElem {
+	struct Point pointsOfFallingElem[4];
 	enum Shape shape;
+	int pointsCount;
 };
 
 struct Game createGameField() {
@@ -42,7 +48,6 @@ struct Game createGameField() {
 			}
 		}
 	}
-	e.gameField[1][3] = '@';
 	return e;
 }
 
@@ -55,18 +60,47 @@ void printGameField(struct Game e) {
 	}
 }
 
-struct FallingElem moveFallingElemIfKeyPressed(struct FallingElem el) {
+int canMoveLeft(struct FallingElem el, struct Game game) {
+	for (int i = 0; i < el.pointsCount; ++i) {
+		int posX = el.pointsOfFallingElem[i].positionX - 1;
+		int posY = el.pointsOfFallingElem[i].positionY;
+		if (game.gameField[posY][posX] == '|' || game.gameField[posY][posX] == '*') {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int canMoveRight(struct FallingElem el, struct Game game) {
+	for (int i = 0; i < el.pointsCount; ++i) {
+		int posX = el.pointsOfFallingElem[i].positionX + 1;
+		int posY = el.pointsOfFallingElem[i].positionY;
+		if (game.gameField[posY][posX] == '|' || game.gameField[posY][posX] == '*') {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+struct FallingElem move(struct FallingElem el, int step) {
+	for (int i = 0; i < el.pointsCount; ++i) {
+		el.pointsOfFallingElem[i].positionX += step;
+	}
+	return el;
+}
+
+struct FallingElem moveFallingElemIfKeyPressed(struct FallingElem el, struct Game game) {
 	if (_kbhit()) {
 		char pressedKey = tolower((char)_getch());
 		switch (pressedKey) {
 		case moveLeftKey:
-			if (el.positionX > 1) {
-				el.positionX -= 1;
+			if (canMoveLeft(el, game)) {
+				el = move(el, -1);
 			}
 			break;
 		case moveRighKey:
-			if (el.positionX < gameFieldWidth - 2) {
-				el.positionX += 1;
+			if (canMoveRight(el, game)) {
+				el = move(el, 1);
 			}
 			break;
 		case turnFallingElem:
@@ -77,27 +111,87 @@ struct FallingElem moveFallingElemIfKeyPressed(struct FallingElem el) {
 	return el;
 }
 
-struct FallingElem createFalling() {
-	struct FallingElem el;
-	el.positionX = rand() % (gameFieldWidth - 3) + 1;
-	el.positionY = 1;
-	el.shape = rand() % 2 + 1;
+struct FallingElem createNewBlock(struct FallingElem el, int startPosition) {
+	struct Point p;
+	el.pointsCount = 4;
+	p.positionX = startPosition;
+	p.positionY = 1;
+	el.pointsOfFallingElem[0] = p;
+	p.positionX = startPosition + 1;
+	p.positionY = 1;
+	el.pointsOfFallingElem[1] = p;
+	p.positionX = startPosition + 1;
+	p.positionY = 2;
+	el.pointsOfFallingElem[2] = p;
+	p.positionX = startPosition;
+	p.positionY = 2;
+	el.pointsOfFallingElem[3] = p;
+
 	return el;
 }
 
-struct Game draw(struct FallingElem el, struct Game game, char drawingSign) {
+struct FallingElem createLine(struct FallingElem el, int startPosition) {
+	struct Point p;
+	el.pointsCount = 4;
+	p.positionX = startPosition;
+	p.positionY = 1;
+	el.pointsOfFallingElem[0] = p;
+	p.positionX = startPosition + 1;
+	p.positionY = 1;
+	el.pointsOfFallingElem[1] = p;
+	p.positionX = startPosition + 2;
+	p.positionY = 1;
+	el.pointsOfFallingElem[2] = p;
+	p.positionX = startPosition + 3;
+	p.positionY = 1;
+	el.pointsOfFallingElem[3] = p;
+
+	return el;
+}
+
+
+struct FallingElem createZBlock(struct FallingElem el, int startPosition) {
+	struct Point p;
+	el.pointsCount = 4;
+	p.positionX = startPosition;
+	p.positionY = 1;
+	el.pointsOfFallingElem[0] = p;
+	p.positionX = startPosition + 1;
+	p.positionY = 1;
+	el.pointsOfFallingElem[1] = p;
+	p.positionX = startPosition + 1;
+	p.positionY = 2;
+	el.pointsOfFallingElem[2] = p;
+	p.positionX = startPosition + 2;
+	p.positionY = 2;
+	el.pointsOfFallingElem[3] = p;
+
+	return el;
+}
+struct FallingElem createFalling() {
+	struct FallingElem el;
+	int startPosition = rand() % (gameFieldWidth - 5) + 1;
+	el.shape = rand() % shapeCount + 1;
+	
 	if (el.shape == Block) {
-		game.gameField[el.positionY][el.positionX] = drawingSign;
-		game.gameField[el.positionY + 1][el.positionX] = drawingSign;
-		game.gameField[el.positionY + 1][el.positionX + 1] = drawingSign;
-		game.gameField[el.positionY][el.positionX + 1] = drawingSign;
+		el = createNewBlock(el, startPosition);
 	}
 	else if (el.shape == Line) {
-		game.gameField[el.positionY][el.positionX] = drawingSign;
-		game.gameField[el.positionY + 1][el.positionX] = drawingSign;
-		game.gameField[el.positionY + 2][el.positionX] = drawingSign;
+		el = createLine(el, startPosition);
 	}
+	else if (el.shape == Zblock) {
+		el = createZBlock(el, startPosition);
+	}
+	return el;
+}
 
+
+struct Game draw(struct FallingElem el, struct Game game, char drawingSign) {
+	for (int i = 0; i < el.pointsCount; ++i) {
+		int xPos = el.pointsOfFallingElem[i].positionX;
+		int yPos = el.pointsOfFallingElem[i].positionY;
+		game.gameField[yPos][xPos] = drawingSign;
+	}
 	return game;
 }
 
@@ -112,13 +206,28 @@ struct Game clearFalling(struct FallingElem el, struct Game game) {
 }
 
 struct FallingElem moveElemDown(struct FallingElem el) {
-	el.positionY += 1;
+	for (int i = 0; i < el.pointsCount; ++i) {
+		el.pointsOfFallingElem[i].positionY += 1;
+	}
 	return el;
 }
 
-int stopedFalling(struct FallingElem el, struct Game game) {
-	if (el.positionX) {
+int stoppedFalling(struct FallingElem el, struct Game game) {
+	for (int i = 0; i < el.pointsCount; ++i) {
+		struct Point p = el.pointsOfFallingElem[i];
+		if (collision(p, game)) {
+			return 1;
+		}
 	}
+	return 0;
+}
+
+int collision(struct Point p, struct Game game) {
+	if (game.gameField[p.positionY + 1][p.positionX] == '-'
+		|| game.gameField[p.positionY + 1][p.positionX] == '*') {
+		return 1;
+	}
+	return 0;
 }
 
 void main() {
@@ -126,7 +235,7 @@ void main() {
 	struct Game gameField = createGameField();
 	struct FallingElem falling = createFalling();
 	clock_t start, end;
-
+	struct FallingElem old;
 	while (1) {
 		start = clock();
 		gameField = setFallingElemenInGame(falling, gameField);
@@ -135,15 +244,18 @@ void main() {
 		double timeTaken = 0;
 
 		do {
-			falling = moveFallingElemIfKeyPressed(falling);
+			falling = moveFallingElemIfKeyPressed(falling, gameField);
 			end = clock();
 			timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC;
 		} while (timeTaken < refreshingTime);
 		
-		
+		if (stoppedFalling(falling, gameField)) {
+			gameField = setFallingElemenInGame(falling, gameField);
+			falling = createFalling();
+		}
+		else {
 			falling = moveElemDown(falling);
-		
-		
+		}
 		system("cls");
 	}
 
