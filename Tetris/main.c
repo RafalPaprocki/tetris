@@ -5,8 +5,8 @@
 #include<conio.h>
 #include<ctype.h>
 
-#define gameFieldHeigh 21
-#define gameFieldWidth 20
+#define gameFieldHeigh 10
+#define gameFieldWidth 10
 #define moveLeftKey 'a'
 #define moveRighKey 'd'
 #define turnFallingElem 'o'
@@ -20,7 +20,8 @@ enum Shape {
 };
 
 struct Game {
-	char gameField[gameFieldHeigh][gameFieldWidth];
+	char** gameField;
+	int points;
 };
 
 struct Point {
@@ -34,30 +35,44 @@ struct FallingElem {
 	int pointsCount;
 };
 
+char** allockMemory(int height, int width) {
+	char** temp = (char**)malloc(height * sizeof(char*));
+	for (int k = 0; k < height; k++) {
+		temp[k] = (char*)malloc(width * sizeof(char));
+	}
+	return temp;
+}
+
 struct Game createGameField() {
-	struct Game e;
+	struct Game game;
+	
+	game.gameField = allockMemory(gameFieldHeigh, gameFieldWidth);
+	game.points = 0;
+
 	for (int i = 0; i < gameFieldHeigh; ++i) {
 		for (int j = 0; j < gameFieldWidth; ++j) {
 			if (i == 0 || i == gameFieldHeigh - 1) {
-				e.gameField[i][j] = '-';
+				game.gameField[i][j] = '-';
 			}else if (j == 0 || j == gameFieldWidth - 1) {
-				e.gameField[i][j] = '|';
+				game.gameField[i][j] = '|';
 			}
 			else {
-				e.gameField[i][j] = ' ';
+				game.gameField[i][j] = ' ';
 			}
 		}
 	}
-	return e;
+	return game;
 }
 
-void printGameField(struct Game e) {
+
+void printGameField(struct Game game) {
 	for (int i = 0; i < gameFieldHeigh; ++i) {
 		for (int j = 0; j < gameFieldWidth; ++j) {
-			printf("%c", e.gameField[i][j]);
+			printf("%c", game.gameField[i][j]);
 		}
 		printf("\n");
 	}
+	printf("\nPunkty: %d", game.points);
 }
 
 int canMoveLeft(struct FallingElem el, struct Game game) {
@@ -212,6 +227,14 @@ struct FallingElem moveElemDown(struct FallingElem el) {
 	return el;
 }
 
+int collision(struct Point p, struct Game game) {
+	if (game.gameField[p.positionY + 1][p.positionX] == '-'
+		|| game.gameField[p.positionY + 1][p.positionX] == '*') {
+		return 1;
+	}
+	return 0;
+}
+
 int stoppedFalling(struct FallingElem el, struct Game game) {
 	for (int i = 0; i < el.pointsCount; ++i) {
 		struct Point p = el.pointsOfFallingElem[i];
@@ -222,20 +245,61 @@ int stoppedFalling(struct FallingElem el, struct Game game) {
 	return 0;
 }
 
-int collision(struct Point p, struct Game game) {
-	if (game.gameField[p.positionY + 1][p.positionX] == '-'
-		|| game.gameField[p.positionY + 1][p.positionX] == '*') {
-		return 1;
+int* findFullLines(struct Game game) {
+	int fullLines[gameFieldHeigh];
+	for (int i = 0; i < gameFieldHeigh; ++i) {
+		fullLines[i] = 0;
 	}
-	return 0;
+	for (int i = 1; i < gameFieldHeigh - 1; ++i) {
+		for (int j = 1; j < gameFieldWidth - 1; ++j) {
+			char g = game.gameField[i][j];
+			if (game.gameField[i][j] != '*') {
+				break;
+			}
+			if (j == (gameFieldWidth - 2)) {
+				fullLines[i] = 1;
+			}
+		}
+	}
+	return fullLines;
+}
+
+struct Game clearFullLine(struct Game game) {
+	int* fullLines = findFullLines(game);
+	int counter = gameFieldHeigh - 1;
+	for (int i = gameFieldHeigh - 1; i >= 1; --i) {
+		if (fullLines[i] == 0) {
+			if (counter != i) { // we will change in place, so this condition is to don't changing if procedding current row of table, it will help to improve performance
+				for (int j = 1; j < gameFieldWidth - 1; ++j) {
+					game.gameField[counter][j] = game.gameField[i][j];
+				}
+			} 
+			--counter;
+		}
+		else {
+			game.points++;
+		}
+	}
+
+	for (counter; counter >= 1; --counter) {
+		for (int j = 1; j < gameFieldWidth - 1; ++j) {
+			game.gameField[counter][j] = ' ';
+		}
+	}
+
+	return game;
 }
 
 void main() {
 	srand(time(NULL));
 	struct Game gameField = createGameField();
 	struct FallingElem falling = createFalling();
+
+	printf("%c", gameField.gameField[0][0]);
+	
 	clock_t start, end;
-	struct FallingElem old;
+	
+	
 	while (1) {
 		start = clock();
 		gameField = setFallingElemenInGame(falling, gameField);
@@ -252,12 +316,14 @@ void main() {
 		if (stoppedFalling(falling, gameField)) {
 			gameField = setFallingElemenInGame(falling, gameField);
 			falling = createFalling();
+			gameField = clearFullLine(gameField);
+			
 		}
 		else {
 			falling = moveElemDown(falling);
 		}
 		system("cls");
 	}
+	
 
-	return 0;
 }

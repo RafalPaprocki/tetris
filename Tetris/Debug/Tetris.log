@@ -1,5 +1,4 @@
 ﻿  main.c
-C:\Users\Rafal\Desktop\tetris\Tetris\main.c(125,18): warning C4244: "funkcja": konwersja z "time_t" do "unsigned int", możliwa utrata danych
-C:\Users\Rafal\Desktop\tetris\Tetris\main.c(150,10): warning C4098: "main": funkcja "void" zwraca wartość
-C:\Users\Rafal\Desktop\tetris\Tetris\main.c(122): warning C4716: "stopedFalling": musi zwracać wartość
-  Tetris.vcxproj -> C:\Users\Rafal\Desktop\tetris\Debug\Tetris.exe
+C:\Users\Rafal\Documents\tetris\Tetris\main.c(294,18): warning C4244: "funkcja": konwersja z "time_t" do "unsigned int", możliwa utrata danych
+C:\Users\Rafal\Documents\tetris\Tetris\main.c(264): warning C4172: zwracanie adresu lokalnej zmiennej lub tymczasowej: fullLines
+  Tetris.vcxproj -> C:\Users\Rafal\Documents\tetris\Debug\Tetris.exe
