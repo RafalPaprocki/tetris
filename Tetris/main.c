@@ -5,12 +5,12 @@
 #include<conio.h>
 #include<ctype.h>
 
-#define gameFieldHeigh 10
-#define gameFieldWidth 10
+#define gameFieldHeigh 20
+#define gameFieldWidth 12
 #define moveLeftKey 'a'
 #define moveRighKey 'd'
 #define turnFallingElem 'o'
-#define refreshingTime 0.25
+#define refreshingTime 0.15
 #define shapeCount 3
 
 enum Shape {
@@ -31,6 +31,7 @@ struct Point {
 
 struct FallingElem {
 	struct Point pointsOfFallingElem[4];
+	struct Point centre;
 	enum Shape shape;
 	int pointsCount;
 };
@@ -41,6 +42,13 @@ char** allockMemory(int height, int width) {
 		temp[k] = (char*)malloc(width * sizeof(char));
 	}
 	return temp;
+}
+
+void freeMemory(char** tab) {
+	for (int i = 0; i < gameFieldHeigh; i++) {
+		free(tab[i]);
+	}
+	free(tab);
 }
 
 struct Game createGameField() {
@@ -104,6 +112,32 @@ struct FallingElem move(struct FallingElem el, int step) {
 	return el;
 }
 
+int collision(struct Point p, struct Game game) {
+	if (game.gameField[p.positionY + 1][p.positionX] == '-'
+		|| game.gameField[p.positionY + 1][p.positionX] == '*'
+		|| game.gameField[p.positionY + 1][p.positionX] == '|') {
+		return 1;
+	}
+	return 0;
+}
+
+struct FallingElem rotate(struct FallingElem el, struct Game game) {
+	int delX = 0;
+	int delY = 0;
+	struct FallingElem temp = el;
+	for (int i = 0; i < temp.pointsCount; ++i) {
+		struct Point p = temp.pointsOfFallingElem[i];
+		delX = temp.pointsOfFallingElem[0].positionX - p.positionX;
+		delY = temp.pointsOfFallingElem[0].positionY - p.positionY;
+		temp.pointsOfFallingElem[i].positionX += delY + delX;
+		temp.pointsOfFallingElem[i].positionY += delY - delX;
+		if (collision(temp.pointsOfFallingElem[i], game)) {
+			return el;
+		}
+	}
+	return temp;
+}
+
 struct FallingElem moveFallingElemIfKeyPressed(struct FallingElem el, struct Game game) {
 	if (_kbhit()) {
 		char pressedKey = tolower((char)_getch());
@@ -119,7 +153,7 @@ struct FallingElem moveFallingElemIfKeyPressed(struct FallingElem el, struct Gam
 			}
 			break;
 		case turnFallingElem:
-			printf("Turned");
+			el = rotate(el, game);
 			break;
 		}
 	}
@@ -131,6 +165,7 @@ struct FallingElem createNewBlock(struct FallingElem el, int startPosition) {
 	el.pointsCount = 4;
 	p.positionX = startPosition;
 	p.positionY = 1;
+	el.centre = p;
 	el.pointsOfFallingElem[0] = p;
 	p.positionX = startPosition + 1;
 	p.positionY = 1;
@@ -150,6 +185,7 @@ struct FallingElem createLine(struct FallingElem el, int startPosition) {
 	el.pointsCount = 4;
 	p.positionX = startPosition;
 	p.positionY = 1;
+	el.centre = p;
 	el.pointsOfFallingElem[0] = p;
 	p.positionX = startPosition + 1;
 	p.positionY = 1;
@@ -170,6 +206,7 @@ struct FallingElem createZBlock(struct FallingElem el, int startPosition) {
 	el.pointsCount = 4;
 	p.positionX = startPosition;
 	p.positionY = 1;
+	el.centre = p;
 	el.pointsOfFallingElem[0] = p;
 	p.positionX = startPosition + 1;
 	p.positionY = 1;
@@ -227,15 +264,7 @@ struct FallingElem moveElemDown(struct FallingElem el) {
 	return el;
 }
 
-int collision(struct Point p, struct Game game) {
-	if (game.gameField[p.positionY + 1][p.positionX] == '-'
-		|| game.gameField[p.positionY + 1][p.positionX] == '*') {
-		return 1;
-	}
-	return 0;
-}
-
-int stoppedFalling(struct FallingElem el, struct Game game) {
+int elementCollision(struct FallingElem el, struct Game game) {
 	for (int i = 0; i < el.pointsCount; ++i) {
 		struct Point p = el.pointsOfFallingElem[i];
 		if (collision(p, game)) {
@@ -243,6 +272,10 @@ int stoppedFalling(struct FallingElem el, struct Game game) {
 		}
 	}
 	return 0;
+}
+
+int stoppedFalling(struct FallingElem el, struct Game game) {
+	return elementCollision(el, game);
 }
 
 int* findFullLines(struct Game game) {
@@ -269,7 +302,7 @@ struct Game clearFullLine(struct Game game) {
 	int counter = gameFieldHeigh - 1;
 	for (int i = gameFieldHeigh - 1; i >= 1; --i) {
 		if (fullLines[i] == 0) {
-			if (counter != i) { // we will change in place, so this condition is to don't changing if procedding current row of table, it will help to improve performance
+			if (counter != i) { 
 				for (int j = 1; j < gameFieldWidth - 1; ++j) {
 					game.gameField[counter][j] = game.gameField[i][j];
 				}
@@ -280,26 +313,45 @@ struct Game clearFullLine(struct Game game) {
 			game.points++;
 		}
 	}
-
 	for (counter; counter >= 1; --counter) {
 		for (int j = 1; j < gameFieldWidth - 1; ++j) {
 			game.gameField[counter][j] = ' ';
 		}
 	}
-
 	return game;
 }
 
-void main() {
-	srand(time(NULL));
+int checkIfEnd(struct FallingElem elem, struct Game gameField) {
+	return elementCollision(elem, gameField);
+}
+
+void showResult(int result) {
+	system("cls");
+	printf("Game over. \n\n");
+	printf("Your result: %d \n\n", result);
+	printf("Press Any Key and Enter to back to MENU\n");  
+	getchar();
+	getchar();
+}
+
+int menu() {
+	int action;
+	system("cls");
+	printf("Hello in tetris\n\n");
+	printf("Choose proper action:\n");
+	printf("\t1.New game.\n");
+	printf("\t2.Exit.\n");
+	scanf_s("%d", &action);
+	return action;
+}
+
+void game() {
 	struct Game gameField = createGameField();
 	struct FallingElem falling = createFalling();
 
 	printf("%c", gameField.gameField[0][0]);
-	
+
 	clock_t start, end;
-	
-	
 	while (1) {
 		start = clock();
 		gameField = setFallingElemenInGame(falling, gameField);
@@ -312,18 +364,41 @@ void main() {
 			end = clock();
 			timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC;
 		} while (timeTaken < refreshingTime);
-		
+
 		if (stoppedFalling(falling, gameField)) {
 			gameField = setFallingElemenInGame(falling, gameField);
 			falling = createFalling();
 			gameField = clearFullLine(gameField);
-			
+			if (checkIfEnd(falling, gameField)) {
+				system("cls");
+				gameField = setFallingElemenInGame(falling, gameField);
+				printGameField(gameField);
+				showResult(gameField.points);
+				freeMemory(gameField.gameField);
+				break;
+			}
 		}
 		else {
 			falling = moveElemDown(falling);
 		}
 		system("cls");
 	}
-	
+}
 
+void main() {
+	srand(time(NULL));
+	while (1) {
+		int action = menu();
+		printf("%d", action);
+		switch (action)
+		{
+		case 1:
+			game();
+			break;
+		case 2:
+			exit(0);
+		default:
+			break;
+		}
+	}
 }
